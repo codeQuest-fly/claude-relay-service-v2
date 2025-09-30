@@ -1,0 +1,10 @@
+# 将以下配置添加到你的 .env 文件中
+
+# 启用模型限制功能
+CLAUDE_MODEL_RESTRICTION_ENABLED=true
+
+# 限制 Opus 4.1 模型
+CLAUDE_GLOBAL_RESTRICTED_MODELS=claude-opus-4-1-20250805
+
+# 自定义错误消息
+CLAUDE_MODEL_CUSTOM_ERRORS={"claude-opus-4-1-20250805":{"httpCode":402,"message":"由于Claude限制原因, 暂时关闭Opus使用, 具体恢复时间不详, 请使用sonnet4.5. 后续可以关注 https://i7dc.com 了解最新动态."}}

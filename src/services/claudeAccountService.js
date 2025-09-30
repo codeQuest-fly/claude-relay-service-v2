@@ -62,7 +62,10 @@ class ClaudeAccountService {
       autoStopOnWarning = false, // 5小时使用量接近限制时自动停止调度
       useUnifiedUserAgent = false, // 是否使用统一Claude Code版本的User-Agent
       useUnifiedClientId = false, // 是否使用统一的客户端标识
-      unifiedClientId = '' // 统一的客户端标识
+      unifiedClientId = '', // 统一的客户端标识
+      enableModelRestriction = false, // 是否启用账户级模型限制
+      restrictedModels = [], // 限制的模型列表
+      customErrorMessages = {} // 自定义错误消息
     } = options
 
     const accountId = uuidv4()
@@ -97,6 +100,9 @@ class ClaudeAccountService {
         useUnifiedUserAgent: useUnifiedUserAgent.toString(), // 是否使用统一Claude Code版本的User-Agent
         useUnifiedClientId: useUnifiedClientId.toString(), // 是否使用统一的客户端标识
         unifiedClientId: unifiedClientId || '', // 统一的客户端标识
+        enableModelRestriction: enableModelRestriction.toString(), // 是否启用账户级模型限制
+        restrictedModels: JSON.stringify(restrictedModels || []), // 限制的模型列表
+        customErrorMessages: JSON.stringify(customErrorMessages || {}), // 自定义错误消息
         // 优先使用手动设置的订阅信息，否则使用OAuth数据中的，否则默认为空
         subscriptionInfo: subscriptionInfo
           ? JSON.stringify(subscriptionInfo)
@@ -129,6 +135,11 @@ class ClaudeAccountService {
         schedulable: schedulable.toString(), // 是否可被调度
         autoStopOnWarning: autoStopOnWarning.toString(), // 5小时使用量接近限制时自动停止调度
         useUnifiedUserAgent: useUnifiedUserAgent.toString(), // 是否使用统一Claude Code版本的User-Agent
+        useUnifiedClientId: useUnifiedClientId.toString(), // 是否使用统一的客户端标识
+        unifiedClientId: unifiedClientId || '', // 统一的客户端标识
+        enableModelRestriction: enableModelRestriction.toString(), // 是否启用账户级模型限制
+        restrictedModels: JSON.stringify(restrictedModels || []), // 限制的模型列表
+        customErrorMessages: JSON.stringify(customErrorMessages || {}), // 自定义错误消息
         // 手动设置的订阅信息
         subscriptionInfo: subscriptionInfo ? JSON.stringify(subscriptionInfo) : ''
       }

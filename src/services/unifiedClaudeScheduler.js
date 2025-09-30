@@ -28,6 +28,38 @@ class UnifiedClaudeScheduler {
       return true // 没有指定模型时，默认支持
     }
 
+    // 🚫 模型限制检查（黑名单机制）
+    const config = require('../../config/config')
+
+    // 1️⃣ 全局配置检查
+    if (config.claude.modelRestriction?.enabled) {
+      const globalRestricted = config.claude.modelRestriction.globalRestrictedModels || []
+      if (globalRestricted.includes(requestedModel)) {
+        logger.info(
+          `🚫 [Global] Model ${requestedModel} is globally restricted${context ? ` ${context}` : ''}`
+        )
+        return false
+      }
+    }
+
+    // 2️⃣ 账户级别配置检查（仅对 Claude Official 账户）
+    if (accountType === 'claude-official' && account.enableModelRestriction === 'true') {
+      try {
+        const restrictedModels = typeof account.restrictedModels === 'string'
+          ? JSON.parse(account.restrictedModels || '[]')
+          : (account.restrictedModels || [])
+
+        if (restrictedModels.length > 0 && restrictedModels.includes(requestedModel)) {
+          logger.info(
+            `🚫 [Account] Account ${account.name} has restricted model ${requestedModel}${context ? ` ${context}` : ''}`
+          )
+          return false
+        }
+      } catch (e) {
+        logger.warn(`⚠️ Failed to parse restrictedModels for account ${account.name}:`, e.message)
+      }
+    }
+
     // Claude OAuth 账户的 Opus 模型检查
     if (accountType === 'claude-official') {
       if (requestedModel.toLowerCase().includes('opus')) {

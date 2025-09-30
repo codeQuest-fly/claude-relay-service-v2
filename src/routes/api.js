@@ -15,6 +15,116 @@ const sessionHelper = require('../utils/sessionHelper')
 
 const router = express.Router()
 
+// 🚫 检查账户级模型限制
+async function checkAccountModelRestriction(apiKeyData, requestedModel, vendor) {
+  // 如果是 CCR 供应商，不进行 Claude 账户的模型限制检查
+  if (vendor === 'ccr') {
+    return null
+  }
+
+  const config = require('../../config/config')
+  const claudeAccountService = require('../services/claudeAccountService')
+  const accountGroupService = require('../services/accountGroupService')
+
+  // 1. 检查全局配置
+  if (config.claude.modelRestriction?.enabled) {
+    const globalRestricted = config.claude.modelRestriction.globalRestrictedModels || []
+
+    if (globalRestricted.includes(requestedModel)) {
+      // 查找是否有自定义错误消息
+      const customError = config.claude.modelRestriction.customModelErrors?.[requestedModel]
+
+      if (customError) {
+        return {
+          httpCode: customError.httpCode || 402,
+          errorType: customError.errorType || 'model_not_available',
+          message: customError.message
+        }
+      }
+
+      // 使用默认错误消息
+      return {
+        httpCode: config.claude.modelRestriction.defaultError.httpCode,
+        errorType: config.claude.modelRestriction.defaultError.errorType,
+        message: config.claude.modelRestriction.defaultError.message.replace('{model}', requestedModel)
+      }
+    }
+  }
+
+  // 2. 检查账户级配置（需要遍历可用账户）
+  // 如果 API Key 绑定了特定账户或分组
+  if (apiKeyData.claudeAccountId) {
+    let accountsToCheck = []
+
+    // 分组绑定
+    if (apiKeyData.claudeAccountId.startsWith('group:')) {
+      const groupId = apiKeyData.claudeAccountId.replace('group:', '')
+      const group = await accountGroupService.getGroup(groupId)
+      if (group && group.accountIds) {
+        const allAccounts = await claudeAccountService.getAllAccounts()
+        accountsToCheck = allAccounts.filter(acc => group.accountIds.includes(acc.id))
+      }
+    }
+    // 专属账户绑定
+    else {
+      const account = await claudeAccountService.getAccount(apiKeyData.claudeAccountId)
+      if (account) {
+        accountsToCheck = [account]
+      }
+    }
+
+    // 检查是否所有账户都限制了该模型
+    const allRestricted = accountsToCheck.length > 0 && accountsToCheck.every(account => {
+      if (account.enableModelRestriction !== 'true' && account.enableModelRestriction !== true) {
+        return false
+      }
+
+      try {
+        const restrictedModels = typeof account.restrictedModels === 'string'
+          ? JSON.parse(account.restrictedModels || '[]')
+          : (account.restrictedModels || [])
+
+        return restrictedModels.includes(requestedModel)
+      } catch (e) {
+        return false
+      }
+    })
+
+    if (allRestricted) {
+      // 尝试从第一个账户获取自定义错误消息
+      const firstAccount = accountsToCheck[0]
+
+      try {
+        const customErrors = typeof firstAccount.customErrorMessages === 'string'
+          ? JSON.parse(firstAccount.customErrorMessages || '{}')
+          : (firstAccount.customErrorMessages || {})
+
+        const customError = customErrors[requestedModel]
+
+        if (customError) {
+          return {
+            httpCode: customError.httpCode || 402,
+            errorType: customError.errorType || 'model_not_available',
+            message: customError.message
+          }
+        }
+      } catch (e) {
+        logger.warn('Failed to parse customErrorMessages:', e.message)
+      }
+
+      // 使用全局默认错误
+      return {
+        httpCode: config.claude.modelRestriction?.defaultError?.httpCode || 402,
+        errorType: config.claude.modelRestriction?.defaultError?.errorType || 'model_not_available',
+        message: config.claude.modelRestriction?.defaultError?.message?.replace('{model}', requestedModel) ||
+                 `Model ${requestedModel} is not available for your account.`
+      }
+    }
+  }
+
+  return null // 没有限制
+}
+
 // 🔧 共享的消息处理函数
 async function handleMessagesRequest(req, res) {
   try {
@@ -71,6 +181,27 @@ async function handleMessagesRequest(req, res) {
           }
         })
       }
+    }
+
+    // 🚫 检查账户级模型限制
+    const requestedModel = req.body.model || 'claude-3-5-sonnet-20241022'
+    const { vendor, baseModel } = parseVendorPrefixedModel(requestedModel)
+    const effectiveModelForRestriction = vendor === 'ccr' ? baseModel : requestedModel
+
+    const modelRestrictionError = await checkAccountModelRestriction(
+      req.apiKey,
+      effectiveModelForRestriction,
+      vendor
+    )
+
+    if (modelRestrictionError) {
+      // 返回友好的错误消息
+      return res.status(modelRestrictionError.httpCode).json({
+        error: {
+          type: modelRestrictionError.errorType,
+          message: modelRestrictionError.message
+        }
+      })
     }
 
     // 检查是否为流式请求

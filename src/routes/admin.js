@@ -2122,11 +2122,27 @@ router.post('/claude-accounts', authenticateAdmin, async (req, res) => {
       autoStopOnWarning,
       useUnifiedUserAgent,
       useUnifiedClientId,
-      unifiedClientId
+      unifiedClientId,
+      enableModelRestriction,
+      restrictedModels,
+      customErrorMessages
     } = req.body
 
     if (!name) {
       return res.status(400).json({ error: 'Name is required' })
+    }
+
+    // 验证模型限制字段
+    if (enableModelRestriction !== undefined && typeof enableModelRestriction !== 'boolean') {
+      return res.status(400).json({ error: 'enableModelRestriction must be a boolean' })
+    }
+
+    if (restrictedModels !== undefined && !Array.isArray(restrictedModels)) {
+      return res.status(400).json({ error: 'restrictedModels must be an array' })
+    }
+
+    if (customErrorMessages !== undefined && typeof customErrorMessages !== 'object') {
+      return res.status(400).json({ error: 'customErrorMessages must be an object' })
     }
 
     // 验证accountType的有效性
@@ -2165,7 +2181,10 @@ router.post('/claude-accounts', authenticateAdmin, async (req, res) => {
       autoStopOnWarning: autoStopOnWarning === true, // 默认为false
       useUnifiedUserAgent: useUnifiedUserAgent === true, // 默认为false
       useUnifiedClientId: useUnifiedClientId === true, // 默认为false
-      unifiedClientId: unifiedClientId || '' // 统一的客户端标识
+      unifiedClientId: unifiedClientId || '', // 统一的客户端标识
+      enableModelRestriction: enableModelRestriction === true, // 默认为false
+      restrictedModels: restrictedModels || [], // 默认为空数组
+      customErrorMessages: customErrorMessages || {} // 默认为空对象
     })
 
     // 如果是分组类型，将账户添加到分组
