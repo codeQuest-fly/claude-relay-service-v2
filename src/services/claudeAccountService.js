@@ -517,7 +517,25 @@ class ClaudeAccountService {
             useUnifiedClientId: account.useUnifiedClientId === 'true', // 默认为false
             unifiedClientId: account.unifiedClientId || '', // 统一的客户端标识
             // 添加停止原因
-            stoppedReason: account.stoppedReason || null
+            stoppedReason: account.stoppedReason || null,
+            // 添加模型限制字段
+            enableModelRestriction: account.enableModelRestriction === 'true', // 默认为false
+            restrictedModels: (() => {
+              try {
+                return account.restrictedModels ? JSON.parse(account.restrictedModels) : []
+              } catch (e) {
+                logger.warn(`Failed to parse restrictedModels for account ${account.id}:`, e)
+                return []
+              }
+            })(),
+            customErrorMessages: (() => {
+              try {
+                return account.customErrorMessages ? JSON.parse(account.customErrorMessages) : {}
+              } catch (e) {
+                logger.warn(`Failed to parse customErrorMessages for account ${account.id}:`, e)
+                return {}
+              }
+            })()
           }
         })
       )
@@ -607,7 +625,10 @@ class ClaudeAccountService {
         'autoStopOnWarning',
         'useUnifiedUserAgent',
         'useUnifiedClientId',
-        'unifiedClientId'
+        'unifiedClientId',
+        'enableModelRestriction',
+        'restrictedModels',
+        'customErrorMessages'
       ]
       const updatedData = { ...accountData }
       let shouldClearAutoStopFields = false
@@ -626,6 +647,15 @@ class ClaudeAccountService {
           } else if (field === 'subscriptionInfo') {
             // 处理订阅信息更新
             updatedData[field] = typeof value === 'string' ? value : JSON.stringify(value)
+          } else if (field === 'enableModelRestriction') {
+            // 处理模型限制开关
+            updatedData[field] = value.toString()
+          } else if (field === 'restrictedModels') {
+            // 处理限制模型列表
+            updatedData[field] = JSON.stringify(value || [])
+          } else if (field === 'customErrorMessages') {
+            // 处理自定义错误消息
+            updatedData[field] = JSON.stringify(value || {})
           } else if (field === 'claudeAiOauth') {
             // 更新 Claude AI OAuth 数据
             if (value) {

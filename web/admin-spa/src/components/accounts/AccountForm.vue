@@ -1385,6 +1385,78 @@
               </label>
             </div>
 
+            <!-- Claude 模型限制配置 -->
+            <div v-if="form.platform === 'claude'" class="mt-4">
+              <div class="space-y-4">
+                <!-- 启用模型限制开关 -->
+                <label class="flex items-start">
+                  <input
+                    v-model="form.enableModelRestriction"
+                    class="mt-1 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700"
+                    type="checkbox"
+                  />
+                  <div class="ml-3">
+                    <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      启用模型限制
+                    </span>
+                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      限制特定模型的访问，并返回自定义错误消息
+                    </p>
+                  </div>
+                </label>
+
+                <!-- 模型限制列表 -->
+                <div v-if="form.enableModelRestriction" class="space-y-3">
+                  <div
+                    class="rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800/50"
+                  >
+                    <h4 class="mb-3 text-sm font-semibold text-gray-700 dark:text-gray-300">
+                      选择要限制的模型
+                    </h4>
+                    <div class="space-y-2">
+                      <div v-for="model in presetModels" :key="model.value" class="space-y-2">
+                        <label class="flex items-center">
+                          <input
+                            :checked="form.restrictedModels.includes(model.value)"
+                            class="mr-2 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700"
+                            type="checkbox"
+                            @change="toggleModelRestriction(model.value)"
+                          />
+                          <span class="text-sm text-gray-700 dark:text-gray-300">
+                            {{ model.label }}
+                          </span>
+                          <span class="ml-2 text-xs text-gray-500 dark:text-gray-400">
+                            ({{ model.value }})
+                          </span>
+                        </label>
+
+                        <!-- 自定义错误消息输入框 -->
+                        <div v-if="form.restrictedModels.includes(model.value)" class="ml-6">
+                          <textarea
+                            v-model="form.customErrorMessages[model.value]"
+                            class="input-field w-full resize-none text-xs"
+                            :placeholder="`自定义错误消息（选填）`"
+                            rows="2"
+                            @input="updateErrorMessage(model.value, $event.target.value)"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div
+                      v-if="form.restrictedModels.length > 0"
+                      class="mt-3 rounded bg-yellow-50 p-2 dark:bg-yellow-900/20"
+                    >
+                      <p class="text-xs text-yellow-800 dark:text-yellow-200">
+                        <i class="fas fa-exclamation-triangle mr-1" />
+                        已限制 {{ form.restrictedModels.length }} 个模型
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <!-- 所有平台的优先级设置 -->
             <div>
               <label class="mb-3 block text-sm font-semibold text-gray-700 dark:text-gray-300"
@@ -2067,6 +2139,78 @@
             </label>
           </div>
 
+          <!-- Claude 模型限制配置（编辑模式） -->
+          <div v-if="form.platform === 'claude'" class="mt-4">
+            <div class="space-y-4">
+              <!-- 启用模型限制开关 -->
+              <label class="flex items-start">
+                <input
+                  v-model="form.enableModelRestriction"
+                  class="mt-1 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700"
+                  type="checkbox"
+                />
+                <div class="ml-3">
+                  <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    启用模型限制
+                  </span>
+                  <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    限制特定模型的访问，并返回自定义错误消息
+                  </p>
+                </div>
+              </label>
+
+              <!-- 模型限制列表 -->
+              <div v-if="form.enableModelRestriction" class="space-y-3">
+                <div
+                  class="rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800/50"
+                >
+                  <h4 class="mb-3 text-sm font-semibold text-gray-700 dark:text-gray-300">
+                    选择要限制的模型
+                  </h4>
+                  <div class="space-y-2">
+                    <div v-for="model in presetModels" :key="model.value" class="space-y-2">
+                      <label class="flex items-center">
+                        <input
+                          :checked="form.restrictedModels.includes(model.value)"
+                          class="mr-2 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700"
+                          type="checkbox"
+                          @change="toggleModelRestriction(model.value)"
+                        />
+                        <span class="text-sm text-gray-700 dark:text-gray-300">
+                          {{ model.label }}
+                        </span>
+                        <span class="ml-2 text-xs text-gray-500 dark:text-gray-400">
+                          ({{ model.value }})
+                        </span>
+                      </label>
+
+                      <!-- 自定义错误消息输入框 -->
+                      <div v-if="form.restrictedModels.includes(model.value)" class="ml-6">
+                        <textarea
+                          v-model="form.customErrorMessages[model.value]"
+                          class="input-field w-full resize-none text-xs"
+                          :placeholder="`自定义错误消息（选填）`"
+                          rows="2"
+                          @input="updateErrorMessage(model.value, $event.target.value)"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div
+                    v-if="form.restrictedModels.length > 0"
+                    class="mt-3 rounded bg-yellow-50 p-2 dark:bg-yellow-900/20"
+                  >
+                    <p class="text-xs text-yellow-800 dark:text-yellow-200">
+                      <i class="fas fa-exclamation-triangle mr-1" />
+                      已限制 {{ form.restrictedModels.length }} 个模型
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <!-- 所有平台的优先级设置（编辑模式） -->
           <div>
             <label class="mb-3 block text-sm font-semibold text-gray-700 dark:text-gray-300"
@@ -2716,6 +2860,7 @@ import { showToast } from '@/utils/toast'
 import { apiClient } from '@/config/api'
 import { useAccountsStore } from '@/stores/accounts'
 import { useConfirm } from '@/composables/useConfirm'
+import { presetModels, getDefaultErrorMessage } from '@/utils/modelTemplates'
 import ProxyConfig from './ProxyConfig.vue'
 import OAuthFlow from './OAuthFlow.vue'
 import ConfirmModal from '@/components/common/ConfirmModal.vue'
@@ -2852,7 +2997,11 @@ const form = ref({
   // Azure OpenAI 特定字段
   azureEndpoint: props.account?.azureEndpoint || '',
   apiVersion: props.account?.apiVersion || '',
-  deploymentName: props.account?.deploymentName || ''
+  deploymentName: props.account?.deploymentName || '',
+  // 模型限制字段
+  enableModelRestriction: props.account?.enableModelRestriction || false,
+  restrictedModels: props.account?.restrictedModels || [],
+  customErrorMessages: props.account?.customErrorMessages || {}
 })
 
 // 模型映射表数据
@@ -3161,6 +3310,10 @@ const handleOAuthSuccess = async (tokenInfo) => {
       data.useUnifiedUserAgent = form.value.useUnifiedUserAgent || false
       data.useUnifiedClientId = form.value.useUnifiedClientId || false
       data.unifiedClientId = form.value.unifiedClientId || ''
+      // 添加模型限制字段
+      data.enableModelRestriction = form.value.enableModelRestriction || false
+      data.restrictedModels = form.value.restrictedModels || []
+      data.customErrorMessages = form.value.customErrorMessages || {}
       // 添加订阅类型信息
       data.subscriptionInfo = {
         accountType: form.value.subscriptionType || 'claude_max',
@@ -3666,6 +3819,10 @@ const updateAccount = async () => {
       data.useUnifiedUserAgent = form.value.useUnifiedUserAgent || false
       data.useUnifiedClientId = form.value.useUnifiedClientId || false
       data.unifiedClientId = form.value.unifiedClientId || ''
+      // 更新模型限制字段
+      data.enableModelRestriction = form.value.enableModelRestriction || false
+      data.restrictedModels = form.value.restrictedModels || []
+      data.customErrorMessages = form.value.customErrorMessages || {}
       // 更新订阅类型信息
       data.subscriptionInfo = {
         accountType: form.value.subscriptionType || 'claude_max',
@@ -4176,7 +4333,11 @@ watch(
         // 额度管理字段
         dailyQuota: newAccount.dailyQuota || 0,
         dailyUsage: newAccount.dailyUsage || 0,
-        quotaResetTime: newAccount.quotaResetTime || '00:00'
+        quotaResetTime: newAccount.quotaResetTime || '00:00',
+        // 模型限制字段
+        enableModelRestriction: newAccount.enableModelRestriction || false,
+        restrictedModels: newAccount.restrictedModels || [],
+        customErrorMessages: newAccount.customErrorMessages || {}
       }
 
       // 如果是Claude Console账户，加载实时使用情况
@@ -4292,6 +4453,41 @@ const handleUnifiedClientIdChange = () => {
     if (!form.value.unifiedClientId) {
       form.value.unifiedClientId = generateClientId()
     }
+  }
+}
+
+// 模型限制相关函数
+const addRestrictedModel = (modelId) => {
+  if (!form.value.restrictedModels.includes(modelId)) {
+    form.value.restrictedModels.push(modelId)
+    // 如果该模型没有自定义错误消息，则添加默认的
+    if (!form.value.customErrorMessages[modelId]) {
+      const defaultMsg = getDefaultErrorMessage(modelId, 'zh')
+      form.value.customErrorMessages[modelId] = defaultMsg.message
+    }
+  }
+}
+
+const removeRestrictedModel = (modelId) => {
+  const index = form.value.restrictedModels.indexOf(modelId)
+  if (index > -1) {
+    form.value.restrictedModels.splice(index, 1)
+    // 同时删除对应的错误消息
+    delete form.value.customErrorMessages[modelId]
+  }
+}
+
+const updateErrorMessage = (modelId, message) => {
+  if (form.value.restrictedModels.includes(modelId)) {
+    form.value.customErrorMessages[modelId] = message
+  }
+}
+
+const toggleModelRestriction = (modelId) => {
+  if (form.value.restrictedModels.includes(modelId)) {
+    removeRestrictedModel(modelId)
+  } else {
+    addRestrictedModel(modelId)
   }
 }
 

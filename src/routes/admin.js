@@ -2222,6 +2222,19 @@ router.put('/claude-accounts/:accountId', authenticateAdmin, async (req, res) =>
       return res.status(400).json({ error: 'Priority must be a number between 1 and 100' })
     }
 
+    // 验证模型限制字段
+    if (updates.enableModelRestriction !== undefined && typeof updates.enableModelRestriction !== 'boolean') {
+      return res.status(400).json({ error: 'enableModelRestriction must be a boolean' })
+    }
+
+    if (updates.restrictedModels !== undefined && !Array.isArray(updates.restrictedModels)) {
+      return res.status(400).json({ error: 'restrictedModels must be an array' })
+    }
+
+    if (updates.customErrorMessages !== undefined && typeof updates.customErrorMessages !== 'object') {
+      return res.status(400).json({ error: 'customErrorMessages must be an object' })
+    }
+
     // 验证accountType的有效性
     if (updates.accountType && !['shared', 'dedicated', 'group'].includes(updates.accountType)) {
       return res

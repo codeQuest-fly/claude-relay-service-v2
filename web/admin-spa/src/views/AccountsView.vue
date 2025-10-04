@@ -597,6 +597,18 @@
                   >
                     绑定: {{ account.boundApiKeysCount || 0 }} 个API Key
                   </span>
+                  <!-- 模型限制指示器 -->
+                  <span
+                    v-if="
+                      account.platform === 'claude' &&
+                      account.enableModelRestriction &&
+                      account.restrictedModels?.length > 0
+                    "
+                    class="inline-flex items-center rounded-full bg-purple-100 px-2 py-0.5 text-xs font-semibold text-purple-800 dark:bg-purple-900/30 dark:text-purple-300"
+                  >
+                    <i class="fas fa-ban mr-1" />
+                    限制 {{ account.restrictedModels.length }} 个模型
+                  </span>
                 </div>
               </td>
               <td class="whitespace-nowrap px-3 py-4">

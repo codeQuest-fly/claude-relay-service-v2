@@ -46,7 +46,10 @@ async function checkAccountModelRestriction(apiKeyData, requestedModel, vendor) 
       return {
         httpCode: config.claude.modelRestriction.defaultError.httpCode,
         errorType: config.claude.modelRestriction.defaultError.errorType,
-        message: config.claude.modelRestriction.defaultError.message.replace('{model}', requestedModel)
+        message: config.claude.modelRestriction.defaultError.message.replace(
+          '{model}',
+          requestedModel
+        )
       }
     }
   }
@@ -62,7 +65,7 @@ async function checkAccountModelRestriction(apiKeyData, requestedModel, vendor) 
       const group = await accountGroupService.getGroup(groupId)
       if (group && group.accountIds) {
         const allAccounts = await claudeAccountService.getAllAccounts()
-        accountsToCheck = allAccounts.filter(acc => group.accountIds.includes(acc.id))
+        accountsToCheck = allAccounts.filter((acc) => group.accountIds.includes(acc.id))
       }
     }
     // 专属账户绑定
@@ -74,38 +77,42 @@ async function checkAccountModelRestriction(apiKeyData, requestedModel, vendor) 
     }
 
     // 检查是否所有账户都限制了该模型
-    const allRestricted = accountsToCheck.length > 0 && accountsToCheck.every(account => {
-      if (account.enableModelRestriction !== 'true' && account.enableModelRestriction !== true) {
-        return false
-      }
+    const allRestricted =
+      accountsToCheck.length > 0 &&
+      accountsToCheck.every((account) => {
+        if (account.enableModelRestriction !== 'true' && account.enableModelRestriction !== true) {
+          return false
+        }
 
-      try {
-        const restrictedModels = typeof account.restrictedModels === 'string'
-          ? JSON.parse(account.restrictedModels || '[]')
-          : (account.restrictedModels || [])
+        try {
+          const restrictedModels =
+            typeof account.restrictedModels === 'string'
+              ? JSON.parse(account.restrictedModels || '[]')
+              : account.restrictedModels || []
 
-        return restrictedModels.includes(requestedModel)
-      } catch (e) {
-        return false
-      }
-    })
+          return restrictedModels.includes(requestedModel)
+        } catch (e) {
+          return false
+        }
+      })
 
     if (allRestricted) {
       // 尝试从第一个账户获取自定义错误消息
       const firstAccount = accountsToCheck[0]
 
       try {
-        const customErrors = typeof firstAccount.customErrorMessages === 'string'
-          ? JSON.parse(firstAccount.customErrorMessages || '{}')
-          : (firstAccount.customErrorMessages || {})
+        const customErrors =
+          typeof firstAccount.customErrorMessages === 'string'
+            ? JSON.parse(firstAccount.customErrorMessages || '{}')
+            : firstAccount.customErrorMessages || {}
 
-        const customError = customErrors[requestedModel]
+        const customMessage = customErrors[requestedModel]
 
-        if (customError) {
+        if (customMessage) {
           return {
-            httpCode: customError.httpCode || 402,
-            errorType: customError.errorType || 'model_not_available',
-            message: customError.message
+            httpCode: 402,
+            errorType: 'model_not_available',
+            message: customMessage
           }
         }
       } catch (e) {
@@ -116,9 +123,94 @@ async function checkAccountModelRestriction(apiKeyData, requestedModel, vendor) 
       return {
         httpCode: config.claude.modelRestriction?.defaultError?.httpCode || 402,
         errorType: config.claude.modelRestriction?.defaultError?.errorType || 'model_not_available',
-        message: config.claude.modelRestriction?.defaultError?.message?.replace('{model}', requestedModel) ||
-                 `Model ${requestedModel} is not available for your account.`
+        message:
+          config.claude.modelRestriction?.defaultError?.message?.replace(
+            '{model}',
+            requestedModel
+          ) || `Model ${requestedModel} is not available for your account.`
       }
+    }
+  }
+
+  // 3. 对于使用共享账户池的 API Key，检查是否所有共享账户都限制了该模型
+  if (!apiKeyData.claudeAccountId) {
+    try {
+      const allAccounts = await claudeAccountService.getAllAccounts()
+      const sharedAccounts = allAccounts.filter(
+        (acc) => acc.isActive && (acc.accountType === 'shared' || !acc.accountType)
+      )
+
+      if (sharedAccounts.length === 0) {
+        return null // 没有共享账户，无法检查
+      }
+
+      // 检查每个共享账户是否限制了该模型
+      let hasAvailableAccount = false
+      let firstRestrictionMessage = null
+
+      for (const account of sharedAccounts) {
+        // 检查该账户是否启用了模型限制
+        const enableRestriction =
+          account.enableModelRestriction === 'true' || account.enableModelRestriction === true
+
+        if (!enableRestriction) {
+          // 该账户未启用限制，说明有可用账户
+          hasAvailableAccount = true
+          break
+        }
+
+        // 获取该账户的限制模型列表
+        const restrictedModels = (() => {
+          try {
+            return typeof account.restrictedModels === 'string'
+              ? JSON.parse(account.restrictedModels || '[]')
+              : account.restrictedModels || []
+          } catch (e) {
+            return []
+          }
+        })()
+
+        if (!restrictedModels.includes(requestedModel)) {
+          // 该账户未限制此模型，说明有可用账户
+          hasAvailableAccount = true
+          break
+        }
+
+        // 该账户限制了此模型，保存错误消息（使用第一个找到的自定义消息）
+        if (!firstRestrictionMessage) {
+          try {
+            const customErrors =
+              typeof account.customErrorMessages === 'string'
+                ? JSON.parse(account.customErrorMessages || '{}')
+                : account.customErrorMessages || {}
+
+            const customMessage = customErrors[requestedModel]
+            if (customMessage) {
+              firstRestrictionMessage = customMessage
+            }
+          } catch (e) {
+            // 解析失败，忽略
+          }
+        }
+      }
+
+      // 如果所有共享账户都限制了该模型，返回错误
+      if (!hasAvailableAccount) {
+        return {
+          httpCode: 402,
+          errorType: 'model_not_available',
+          message:
+            firstRestrictionMessage ||
+            config.claude.modelRestriction?.defaultError?.message?.replace(
+              '{model}',
+              requestedModel
+            ) ||
+            `模型 ${requestedModel} 暂时不可用，请使用其他模型。`
+        }
+      }
+    } catch (e) {
+      logger.warn('Failed to check shared accounts model restriction:', e.message)
+      // 检查失败时，不阻止请求，让调度器来处理
     }
   }
 
